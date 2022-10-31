@@ -1,7 +1,18 @@
 import React, {useState} from 'react';
-import Offers from "./Offers";
+import Spinner from "../Components/Spinner";
+import {toast} from "react-toastify";
+import {getStorage, ref, uploadBytesResumable, getDownloadURL} from "firebase/storage"
+import {getAuth} from "firebase/auth";
+import {v4 as uuidv4} from "uuid"
+import {serverTimestamp, addDoc, collection} from "firebase/firestore";
+import {db} from "../firebase"
+import {useNavigate} from "react-router";
 
 const CreateListing = () => {
+    const navigate = useNavigate()
+    const auth = getAuth()
+    const [geolocationEnabled, setgeolocationEnabled] = useState(true)
+    const [loading,setLoading] = useState(false)
     const [formData,setformData]=useState({
         type: "rent",
         name: "",
@@ -11,28 +22,151 @@ const CreateListing = () => {
         furnished: false,
         address:"",
         description:"",
-        offer:true,
+        offer:false,
         regularPrice: 0,
-        discountedPrice: 0
+        discountedPrice: 0,
+        latitude:0,
+        longitude:0,
+        images: {}
     })
 
-    const {type, name, bedrooms, bathrooms, parking, furnished, address, description, offer, regularPrice, discountedPrice} = formData
+    const {type, name, bedrooms, bathrooms, parking, furnished, address, description, offer, regularPrice, discountedPrice, latitude, longitude, images} = formData
 
-    function onChange() {
+    function onChange(e){
+        let boolean = null
+        if(e.target.value === "true"){
+            boolean = true
+        }
+        if(e.target.value === "false"){
+            boolean = false
+        }
+        if(e.target.files){
+            setformData((prevState) =>({
+                ...prevState,
+                images: e.target.files
+            }))
+        }
+        if(!e.target.files){
+            setformData((prevState) =>({
+                ...prevState,
+                [e.target.id]: boolean ?? e.target.value
+            }))
+        }
+    }
 
+    const onSubmit = async (e) => {
+        e.preventDefault()
+        setLoading(true)
+        if (+discountedPrice >= +regularPrice) {
+            setLoading(false)
+            toast.error("Regular Price Should Have Higher Than Discounted Price")
+        }
+        if (images.length > 6) {
+            setLoading(false)
+            toast.error("Maximum images are 6")
+        }
+
+        let geolocation = {}
+        if(geolocationEnabled){
+            const Geocodio = require('geocodio-library-node');
+            const geocoder = new Geocodio('5c66bfc6e556feb5363a66acc5f3e7c6ca5566b');
+
+            geocoder.geocode({address})
+                .then(response => {
+                    console.log(response.results[0]);
+                    geolocation.lat = response.results?.address.response.results[0].location.lat ?? 0
+                    geolocation.lng = response.results?.address.response.results[0].location.lng ?? 0
+
+                    if(response.results.address.response.error === "Could not geocode address. Postal code or city required."){
+                        setLoading(false)
+                        toast.error("Please Enter The Correct Address")
+                    }
+                })
+                .catch(err => {
+                        console.error(err);
+                    }
+                );
+        }else{
+            geolocation.lat = latitude
+            geolocation.lng = longitude
+        }
+
+        const storeImage = async (image) => {
+            return new Promise((resolve,reject)=>{
+                const storage = getStorage()
+                const filename = `${auth.currentUser.uid}-${image.name}-${uuidv4()}`
+                const storageRef = ref(storage, filename)
+                const uploadTask = uploadBytesResumable(storageRef, image);
+                uploadTask.on('state_changed',
+                    (snapshot) => {
+                        // Observe state change events such as progress, pause, and resume
+                        // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        console.log('Upload is ' + progress + '% done');
+                        switch (snapshot.state) {
+                            case 'paused':
+                                console.log('Upload is paused');
+                                break;
+                            case 'running':
+                                console.log('Upload is running');
+                                break;
+                        }
+                    },
+                    (error) => {
+                        // Handle unsuccessful uploads
+                        reject(error)
+                    },
+                    () => {
+                        // Handle successful uploads on complete
+                        // For instance, get the download URL: https://firebasestorage.googleapis.com/...
+                        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
+                            resolve('File available at', downloadURL);
+                        });
+                    }
+                );
+            })
+        }
+
+        const imgUrls = await Promise.all(
+            [...images]
+                .map((image)=>storeImage(image)))
+                .catch((error)=>{
+                setLoading(false)
+                toast.error("Images not Uploaded")
+            });
+
+
+        const formDataCopy = {
+            ...formData,
+            imgUrls,
+            geolocation,
+            timestamp : serverTimestamp()
+        }
+        delete formDataCopy.images
+        !formDataCopy.offer && delete formDataCopy.discountedPrice;
+        delete formDataCopy.latitude
+        delete formDataCopy.longitude
+        const docRef = await addDoc(collection(db,"listings"), formDataCopy)
+        setLoading(false)
+        toast.success("Data Successfully Added")
+        navigate(`/category/${formDataCopy.type}/${docRef.id}`)
+    }
+
+    if(loading){
+        return <Spinner/>
     }
 
     return (
         <main className="max-w-md px-2 mx-auto">
             <h1 className="text-3xl font-bold text-center mt-6">Create a Listing</h1>
-            <form>
+            <form onSubmit={onSubmit}>
                 <p className="text-lg mt-6 font-semibold mb-1">Sell or Rent</p>
                 <div className="flex justify-between">
-                    <button onChange={onChange} type="button" id="type" value="sale" className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out mr-3 ${
-                        type === "rent" ? ("bg-white text-black") : ("bg-slate-600 text-white")
-                    }`}>sell</button>
-                    <button onChange={onChange} type="button" id="type" value="sale" className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out ml-3 ${
+                    <button onClick={onChange} type="button" id="type" value="rent" className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out mr-3 ${
                         type === "sale" ? ("bg-white text-black") : ("bg-slate-600 text-white")
+                    }`}>sell</button>
+                    <button onClick={onChange} type="button" id="type" value="sale" className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out ml-3 ${
+                        type === "rent" ? ("bg-white text-black") : ("bg-slate-600 text-white")
                     }`}>rent</button>
                 </div>
                 <p className="mt-6 text-lg font-semibold">Name</p>
@@ -42,45 +176,57 @@ const CreateListing = () => {
                 <div className="flex space-x-6 mb-6">
                     <div>
                         <p className="text-lg font-semibold">Beds</p>
-                        <input type="number" id="bedrooms" value={bedrooms}  min="1" max="50" required className="w-full px-4 py-2 text-xl text-gray-700 bg-white border-slate-300 rounded transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600"/>
+                        <input onChange={onChange} type="number" id="bedrooms" value={bedrooms}  min="1" max="50" required className="w-full px-4 py-2 text-xl text-gray-700 bg-white border-slate-300 rounded transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600"/>
                     </div>
                     <div>
                         <p className="text-lg font-semibold">Baths</p>
-                        <input type="number" id="bathrooms" value={bathrooms}  min="1" max="50" required className="w-full px-4 py-2 text-xl text-gray-700 bg-white border-slate-300 rounded transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600"/>
+                        <input type="number" id="bathrooms" value={bathrooms} onChange={onChange} min="1" max="50" required className="w-full px-4 py-2 text-xl text-gray-700 bg-white border-slate-300 rounded transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600"/>
                     </div>
                 </div>
                 <p className="text-lg mt-6 font-semibold mb-1">Parking Spot</p>
                 <div className="flex justify-between">
-                    <button onChange={onChange} type="button" id="parking" value={true} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out mr-3 ${
+                    <button onClick={onChange} type="button" id="parking" value={true} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out mr-3 ${
                         !parking ? ("bg-white text-black") : ("bg-slate-600 text-white")
                     }`}>Yes</button>
-                    <button onChange={onChange} type="button" id="parking" value={false} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out ml-3 ${
+                    <button onClick={onChange} type="button" id="parking" value={false} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out ml-3 ${
                         parking ? ("bg-white text-black") : ("bg-slate-600 text-white")
                     }`}>No</button>
                 </div>
                 <p className="text-lg mt-6 font-semibold mb-1">Furnished</p>
-                <div className="flex justify-between">
-                    <button onChange={onChange} type="button" id="furnished" value={true} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out mr-3 ${
+                <div className="flex justify-betweenz">
+                    <button onClick={onChange} type="button" id="furnished" value={true} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out mr-3 ${
                         !furnished ? ("bg-white text-black") : ("bg-slate-600 text-white")
                     }`}>Yes</button>
-                    <button onChange={onChange} type="button" id="furnished" value={false} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out ml-3 ${
+                    <button onClick={onChange} type="button" id="furnished" value={false} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out ml-3 ${
                         furnished ? ("bg-white text-black") : ("bg-slate-600 text-white")
                     }`}>No</button>
                 </div>
                 <p className="mt-6 text-lg font-semibold">Address</p>
                 <div>
-                    <textarea type="text" id="address" value={address} onChange={onChange} placeholder="Name" required className="w-full rounded px-4 py-2 text-xl text-gray-700 bg-white border border-gray-300 transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600 mb-6"/>
+                    <textarea type="text" id="address" value={address} onChange={onChange} placeholder="Address" required className="w-full rounded px-4 py-2 text-xl text-gray-700 bg-white border border-gray-300 transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600 mb-6"/>
+                    {!geolocationEnabled && (
+                        <div className="flex space-x-6">
+                            <div>
+                                <p className="text-lg font-semibold">Latitude</p>
+                                <input type="number" id="latitude" value={latitude} onchage={onChange} min="-90" max="90" className="w-full rounded px-4 py-2 text-xl text-gray-700 bg-white border border-gray-300 transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600 mb-6"/>
+                            </div>
+                            <div >
+                                <p className="text-lg font-semibold">Longitude</p>
+                                <input type="number" id="longitude" value={longitude} onchage={onChange} min="-180" max="180" className="w-full rounded px-4 py-2 text-xl text-gray-700 bg-white border border-gray-300 transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600 mb-6"/>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 <p className="text-lg font-semibold">Description</p>
                 <div>
-                    <textarea type="text" id="description" value={description} onChange={onChange} placeholder="Name" required className="w-full rounded px-4 py-2 text-xl text-gray-700 bg-white border border-gray-300 transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600 mb-6"/>
+                    <textarea type="text" id="description" value={description} onChange={onChange} placeholder="Description" required className="w-full rounded px-4 py-2 text-xl text-gray-700 bg-white border border-gray-300 transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600 mb-6"/>
                 </div>
                 <p className="text-lg font-semibold mb-1">Offer</p>
                 <div className="flex justify-between">
-                    <button onChange={onChange} type="button" id="offer" value={true} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out mr-3 ${
+                    <button onClick={onChange} type="button" id="offer" value={true} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out mr-3 ${
                         !offer ? ("bg-white text-black") : ("bg-slate-600 text-white")
                     }`}>Yes</button>
-                    <button onChange={onChange} type="button" id="offer" value={false} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out ml-3 ${
+                    <button onClick={onChange} type="button" id="offer" value={false} className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out ml-3 ${
                         offer ? ("bg-white text-black") : ("bg-slate-600 text-white")
                     }`}>No</button>
                 </div>
