@@ -2,8 +2,9 @@ import React from 'react';
 import {Link} from "react-router-dom";
 import Moment from 'react-moment';
 import {ImLocation} from "react-icons/im";
+import {AiOutlineEdit, AiFillDelete} from "react-icons/ai"
 
-const ListingItem = ({listing, id}) => {
+const ListingItem = ({listing, id, onEdit, onDelete}) => {
     return (
         <li className="relative bg-white flex flex-col justify-between items-center shadow-md hover:shadow-xl rounded-md overflow-hidden transition-shadow duration-200 ease-in m-[10px]">
             <Link className="contents" to={`/category/${listing.type}/${id}`}>
@@ -36,6 +37,12 @@ const ListingItem = ({listing, id}) => {
                     </div>
                 </div>
             </Link>
+            {onDelete && (
+                <AiFillDelete className="absolute bottom-2 right-2 h-[14px] cursor-pointer text-red-700" onClick={()=>onDelete(listing.id)}/>
+            )}
+            {onEdit && (
+                <AiOutlineEdit className="absolute bottom-2 right-7 h-[14px] cursor-pointer text-green-700" onClick={()=>onEdit(listing.id)}/>
+            )}
         </li>
     );
 };
