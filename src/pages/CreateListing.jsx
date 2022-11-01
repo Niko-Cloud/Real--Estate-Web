@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import {useState} from 'react';
 import Spinner from "../Components/Spinner";
 import {toast} from "react-toastify";
 import {getStorage, ref, uploadBytesResumable, getDownloadURL} from "firebase/storage"
@@ -7,6 +7,7 @@ import {v4 as uuidv4} from "uuid"
 import {serverTimestamp, addDoc, collection} from "firebase/firestore";
 import {db} from "../firebase"
 import {useNavigate} from "react-router";
+import {MdHelp} from "react-icons/md"
 
 const CreateListing = () => {
     const navigate = useNavigate()
@@ -103,6 +104,7 @@ const CreateListing = () => {
                         // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
                         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
                         console.log('Upload is ' + progress + '% done');
+                        // eslint-disable-next-line default-case
                         switch (snapshot.state) {
                             case 'paused':
                                 console.log('Upload is paused');
@@ -128,8 +130,7 @@ const CreateListing = () => {
         }
 
         const imgUrls = await Promise.all(
-            [...images]
-                .map((image)=>storeImage(image)))
+            [...images].map((image)=>storeImage(image)))
                 .catch((error)=>{
                 setLoading(false)
                 toast.error("Images not Uploaded")
@@ -140,7 +141,8 @@ const CreateListing = () => {
             ...formData,
             imgUrls,
             geolocation,
-            timestamp : serverTimestamp()
+            timestamp : serverTimestamp(),
+            userRef: auth.currentUser.uid,
         }
         delete formDataCopy.images
         !formDataCopy.offer && delete formDataCopy.discountedPrice;
@@ -163,11 +165,11 @@ const CreateListing = () => {
                 <p className="text-lg mt-6 font-semibold mb-1">Sell or Rent</p>
                 <div className="flex justify-between">
                     <button onClick={onChange} type="button" id="type" value="rent" className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out mr-3 ${
-                        type === "sale" ? ("bg-white text-black") : ("bg-slate-600 text-white")
-                    }`}>sell</button>
+                        type === "rent" ? ("bg-slate-600 text-white") : ("bg-white text-black")
+                    }`}>Rent</button>
                     <button onClick={onChange} type="button" id="type" value="sale" className={`uppercase w-full shadow-md px-7 py-3 rounded font-medium tx-sm hover:shadow-lg focus:shadow-lg active:shadow-lg transition duration-200 ease-in-out ml-3 ${
-                        type === "rent" ? ("bg-white text-black") : ("bg-slate-600 text-white")
-                    }`}>rent</button>
+                        type === "sale" ? ("bg-slate-600 text-white") : ("bg-white text-black")
+                    }`}>Sale</button>
                 </div>
                 <p className="mt-6 text-lg font-semibold">Name</p>
                 <div>
@@ -203,7 +205,8 @@ const CreateListing = () => {
                 </div>
                 <p className="mt-6 text-lg font-semibold">Address</p>
                 <div>
-                    <textarea type="text" id="address" value={address} onChange={onChange} placeholder="Address" required className="w-full rounded px-4 py-2 text-xl text-gray-700 bg-white border border-gray-300 transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600 mb-6"/>
+                    <textarea type="text" id="address" value={address} onChange={onChange} placeholder="Address" required className="w-full rounded px-4 py-2 text-xl text-gray-700 bg-white border border-gray-300 transition duration-200 ease-in-out focus:text-gray-700 focus:bg-white focus:border-slate-600"/>
+                    <p className="flex mb-6 text-gray-500 text-sm"> <MdHelp size={23} className="py-1 mr-1"/> Address Format Example : 17015 Walnut Grove Drive, Morgan Hill CA</p>
                     {!geolocationEnabled && (
                         <div className="flex space-x-6">
                             <div>
@@ -262,7 +265,7 @@ const CreateListing = () => {
                 <div>
                     <div className="mb-6">
                         <p className="text-lg font-semibold mb-1">Images</p>
-                        <p className="text-gray-600">The 1st image will be the cover (max 6)</p>
+                        <p className="text-gray-600">The 1st image will be the cover (max 6) 2MB Each Files</p>
                         <input type="file" id="images" onChange={onChange} accept=".jpg,.png,.jpeg" multiple required className="bg-white border text-gray border-slate-300 w-full px-6 py-3 rounded shadow-md transition duration-200 ease-in-out focus:bg-white focus:border-slate-600"/>
                     </div>
                 </div>
