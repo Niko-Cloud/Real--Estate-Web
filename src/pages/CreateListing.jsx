@@ -122,7 +122,7 @@ const CreateListing = () => {
                         // Handle successful uploads on complete
                         // For instance, get the download URL: https://firebasestorage.googleapis.com/...
                         getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-                            resolve('File available at', downloadURL);
+                            resolve(downloadURL);
                         });
                     }
                 );

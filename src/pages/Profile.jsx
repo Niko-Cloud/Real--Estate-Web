@@ -112,7 +112,7 @@ const Profile = () => {
                 {!loading && listings.length > 0 && (
                     <>
                         <h2 className="text-2xl text-center font-semibold">My Listings</h2>
-                        <ul>
+                        <ul className=" sm:grid sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-43 xl:grid-cols-4 2xl-grid-cols-5 mt-6 mb-6">
                             {listings.map((listing)=>(
                                 <ListingItem
                                     key={listing.id}
