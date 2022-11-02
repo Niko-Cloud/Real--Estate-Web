@@ -10,6 +10,7 @@ import {FaShare, FaBed, FaShower, FaParking, FaChair} from "react-icons/fa"
 import {ImLocation} from "react-icons/im";
 import {getAuth} from "firebase/auth";
 import Contact from "../Components/Contact";
+import {MapContainer, Marker, Popup, TileLayer} from "react-leaflet";
 
 const Listing = () => {
     const params = useParams()
@@ -34,7 +35,6 @@ const Listing = () => {
     if(loading){
         return <Spinner/>
     }
-
 
     return (
         <main>
@@ -63,7 +63,7 @@ const Listing = () => {
             )}
 
             <div className="m-4 flex flex-col md:flex-row max-w-6xl lg:mx-auto p-4 rounded-lg border-3 shadow-lg bg-white space-x-5">
-                <div className="w-full lg-[400px] h-[200px]">
+                <div className="w-full">
                     <p className="text-2xl font-bold mb-3 text-blue-800">
                         {listing.name} - $ {listing.offer ? listing.discountedPrice.toString()
                         .replace(/\B(?=(\d{3})+(?!\d))/g,",") : listing.regularPrice.toString()
@@ -126,7 +126,18 @@ const Listing = () => {
                         listing={listing}/>
                     )}
                 </div>
-                <div className="bg-pink-900 w-full lg-[400px] h-[200px] z-10 overflow-x-hidden ">
+                <div className="w-full lg:h-[300px] h-[200px] z-10 overflow-x-hidden mt-6 lg:mt-0 md:mt-0 md:ml-1" id="map">
+                    <MapContainer center={[listing.geolocation.lat,listing.geolocation.lng]} zoom={13} scrollWheelZoom={false} style={{height:"100%",width:"100%"}}>
+                        <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        <Marker position={[listing.geolocation.lat,listing.geolocation.lng]}>
+                            <Popup>
+                                A pretty CSS3 popup. <br /> Easily customizable.
+                            </Popup>
+                        </Marker>
+                    </MapContainer>
                 </div>
             </div>
         </main>
