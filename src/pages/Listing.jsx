@@ -6,14 +6,19 @@ import Spinner from "../Components/Spinner";
 import {Swiper, SwiperSlide} from "swiper/react";
 import SwiperCore, {EffectFade, Autoplay, Navigation, Pagination} from "swiper";
 import 'swiper/css/bundle';
-import {FaShare, FaBed, FaShower, FaParking, FaChair, FaBath} from "react-icons/fa"
+import {FaShare, FaBed, FaShower, FaParking, FaChair} from "react-icons/fa"
 import {ImLocation} from "react-icons/im";
+import {getAuth} from "firebase/auth";
+import Contact from "../Components/Contact";
 
 const Listing = () => {
     const params = useParams()
     const [listing,setlisting]=useState(null)
     const [loading, setloading] = useState(true)
     const [linkCopied, setlinkCopied] = useState(false)
+    const auth = getAuth()
+    const[contactLandlord, setcontactLandlord] = useState(false)
+
     SwiperCore.use([Autoplay, Navigation, Pagination])
     useEffect(()=>{
         async function fetchListing(){
@@ -72,29 +77,29 @@ const Listing = () => {
                         <p className="text-white bg-red-700 w-full p-1 max-w-[200px] text-center rounded-md shadow-md font-semibold">
                             {listing.type === "rent" ? "For Rent" : "For Sale"}
                         </p>
-                        <p>
+                        <div>
                             {listing.offer && (
                                 <p className="text-white bg-green-700 w-full min-w-[200px] p-1 text-center rounded-md shadow-md font-semibold">
                                     ${listing.regularPrice - listing.discountedPrice} discount
                                 </p>
                             )}
-                        </p>
+                        </div>
                     </div>
                     <p className="mt-3 mb-3">
                         <span className="font-semibold">
                             Description -
                         </span>
-                        <span>
+                        <span className="ml-1">
                             {listing.description}
                         </span>
                     </p>
-                    <ul className="flex space-x-2 sm:space-x-10 text-sm font-semibold" >
+                    <ul className="flex space-x-2 sm:space-x-10 text-sm font-semibold mb-6" >
                         <li className="flex items-center whitespace-nowrap">
                             <FaBed className="text-lg mr-1"/>
                             {+listing.bedrooms > 1 ? `${listing.bedrooms} Beds` : `${listing.bedrooms} Bed`}
                         </li>
                         <li className="flex items-center whitespace-nowrap">
-                            <FaBath className="text-lg mr-1"/>
+                            <FaShower className="text-lg mr-1"/>
                             {+listing.bathrooms > 1 ? `${listing.bathrooms} Baths` : `${listing.bedrooms} Bath`}
                         </li>
                         <li className="flex items-center whitespace-nowrap">
@@ -105,8 +110,21 @@ const Listing = () => {
                             <FaChair className="text-lg mr-1"/>
                             {listing.furnished ? "Furnished Available" : "No Furnished"}
                         </li>
-
                     </ul>
+                    {listing.userRef !== auth.currentUser?.uid && !contactLandlord && (
+                        <div className="mt-6">
+                            <button className="px-7 py-3 bg-blue-600 text-white font-md rounded text-sm uppercase hover:bg-blue-700 shadow-md hover:shadow-lg active:bg-blue-800 active:shadow-lg transition ease-in-out duration-200 focus:bg-blue-700 focus:shadow-lg w-full mt-6" onClick={()=>
+                                setcontactLandlord(true)
+                            }>
+                                Contact Landlord
+                            </button>
+                        </div>
+                    )}
+                    {contactLandlord && (
+                        <Contact
+                            userRef={listing.userRef}
+                        listing={listing}/>
+                    )}
                 </div>
                 <div className="bg-pink-900 w-full lg-[400px] h-[200px] z-10 overflow-x-hidden ">
                 </div>
