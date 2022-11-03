@@ -66,6 +66,7 @@ const Profile = () => {
             })
             setlistings(listings)
             setloading(false)
+
         }
         fetch_user_listing()
 
