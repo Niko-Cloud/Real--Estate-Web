@@ -54,7 +54,8 @@
     "tailwindcss": "^3.1.8"
   },
   "browser": {
-    "path": false,
-    "os": false
+  "fs": false,
+  "path": false,
+  "os": false
   }
 }
