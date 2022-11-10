@@ -1,5 +1,6 @@
 
 Deployment Link https://realtor-clone-niko-cloud.vercel.app
+Deployed by Vercel CLI (Local Build)
 
 REACT PROJECT SO YOU NEED TO USE "npm install" TO INSTALL THE PACKAGE
 
